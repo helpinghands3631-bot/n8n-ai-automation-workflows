@@ -1,0 +1,77 @@
+{
+  "name": "Stripe Payment & Subscription Flow",
+  "nodes": [
+    {
+      "parameters": {"httpMethod": "POST", "path": "stripe-webhook", "options": {}},
+      "id": "webhook-stripe",
+      "name": "Stripe Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {"string": [{"value1": "={{$json.type}}", "operation": "contains", "value2": "checkout.session.completed"}]}
+      },
+      "id": "if-payment",
+      "name": "Payment Completed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "resource": "page", "operation": "create",
+        "databaseId": "={{$env.NOTION_REVENUE_DB}}",
+        "title": "={{$json.data.object.customer_details.email}}",
+        "propertiesUi": {"propertyValues": [
+          {"key": "Amount", "type": "number", "numberValue": "={{$json.data.object.amount_total / 100}}"},
+          {"key": "Status", "type": "select", "selectValue": "Paid"},
+          {"key": "Source", "type": "select", "selectValue": "Stripe"}
+        ]}
+      },
+      "id": "notion-revenue",
+      "name": "Log to Notion Revenue",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$env.TELEGRAM_CHAT_ID}}",
+        "text": "Payment received! $={{$json.data.object.amount_total / 100}} from {{$json.data.object.customer_details.email}}"
+      },
+      "id": "telegram-payment",
+      "name": "Notify Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://keyforagents.com/api/onboard",
+        "method": "POST",
+        "bodyParametersUi": {"parameter": [
+          {"name": "email", "value": "={{$json.data.object.customer_details.email}}"},
+          {"name": "plan", "value": "={{$json.data.object.metadata.plan || 'starter'}}"},
+          {"name": "amount", "value": "={{$json.data.object.amount_total / 100}}"}
+        ]}
+      },
+      "id": "onboard-api",
+      "name": "Trigger Onboarding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Stripe Webhook": {"main": [[{"node": "Payment Completed?", "type": "main", "index": 0}]]},
+    "Payment Completed?": {"main": [
+      [{"node": "Log to Notion Revenue", "type": "main", "index": 0}, {"node": "Notify Telegram", "type": "main", "index": 0}],
+      []
+    ]},
+    "Log to Notion Revenue": {"main": [[{"node": "Trigger Onboarding", "type": "main", "index": 0}]]}
+  },
+  "active": true,
+  "tags": ["stripe", "payments", "keyforagents"]
+}
