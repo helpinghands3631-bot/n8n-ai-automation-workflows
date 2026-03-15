@@ -1,0 +1,76 @@
+{
+  "name": "Notion CRM Auto-Sync",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "minutes", "minutesInterval": 30}]}},
+      "id": "schedule-1",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage", "operation": "getAll",
+        "databaseId": "={{$env.NOTION_LEADS_DB}}",
+        "returnAll": false, "limit": 50,
+        "filterType": "manual",
+        "filters": {"conditions": [{"key": "Status", "condition": "select_equals", "selectValue": "New"}]}
+      },
+      "id": "notion-fetch",
+      "name": "Get New Leads",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {"batchSize": 5, "options": {}},
+      "id": "batch-1",
+      "name": "Process in Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://keyforagents.com/api/leads",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "bodyParametersUi": {"parameter": [
+          {"name": "id", "value": "={{$json.id}}"},
+          {"name": "name", "value": "={{$json.properties.Name.title[0].plain_text}}"},
+          {"name": "email", "value": "={{$json.properties.Email.email}}"},
+          {"name": "source", "value": "notion-sync"}
+        ]}
+      },
+      "id": "api-sync",
+      "name": "Sync to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "resource": "page", "operation": "update",
+        "pageId": "={{$json.id}}",
+        "propertiesUi": {"propertyValues": [
+          {"key": "Status", "type": "select", "selectValue": "Synced"},
+          {"key": "Synced At", "type": "date", "dateValue": "={{new Date().toISOString()}}"}  
+        ]}
+      },
+      "id": "notion-update",
+      "name": "Mark as Synced",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {"main": [[{"node": "Get New Leads", "type": "main", "index": 0}]]},
+    "Get New Leads": {"main": [[{"node": "Process in Batches", "type": "main", "index": 0}]]},
+    "Process in Batches": {"main": [[{"node": "Sync to API", "type": "main", "index": 0}]]},
+    "Sync to API": {"main": [[{"node": "Mark as Synced", "type": "main", "index": 0}]]}
+  },
+  "active": true,
+  "tags": ["notion", "crm", "sync"]
+}
