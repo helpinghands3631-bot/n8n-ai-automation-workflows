@@ -1,0 +1,39 @@
+# KeyForAgents.com & Helping Hands - Backend Requirements
+# Python 3.11+
+
+# Web framework
+flask==3.0.3
+gunicorn==22.0.0
+
+# HTTP client
+requests==2.32.3
+urllib3==2.2.2
+
+# Stripe payments
+stripe==10.5.0
+
+# Notion API client
+notion-client==2.2.1
+
+# Telegram bot
+python-telegram-bot==21.3
+
+# Data validation
+pydantic==2.7.4
+
+# Environment management
+python-dotenv==1.0.1
+
+# Task scheduling
+apscheduler==3.10.4
+
+# Redis (session state for telegram bot in production)
+redis==5.0.7
+
+# Logging & monitoring
+sentry-sdk[flask]==2.7.1
+
+# Testing
+pytest==8.2.2
+pytest-flask==1.3.0
+responses==0.25.3
